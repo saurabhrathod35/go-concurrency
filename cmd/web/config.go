@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"final-project/data"
 	"log"
 	"sync"
 
@@ -14,5 +15,6 @@ type Config struct {
 	InfoLog  *log.Logger
 	ErrorLog *log.Logger
 	Wait     *sync.WaitGroup
-	
+	Modelas  data.Models
+	Mailler  Mail
 }

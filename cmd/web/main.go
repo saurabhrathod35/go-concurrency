@@ -2,11 +2,15 @@ package main
 
 import (
 	"database/sql"
+	"encoding/gob"
+	"final-project/data"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/alexedwards/scs/redisstore"
@@ -16,7 +20,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-var webPort = "9090"
+var webPort = "9091"
 
 func main() {
 
@@ -42,8 +46,15 @@ func main() {
 		InfoLog:  infoLogs,
 		ErrorLog: errorLogs,
 		Wait:     wg,
+		Modelas:  data.New(db),
 	}
 	// setup mail
+	app.Mailler = app.CreateMail()
+	go app.listenForMail()
+	// listen for signal
+
+	go app.listenForShutdown()
+
 	app.searve()
 	// listen for web requests
 
@@ -109,6 +120,7 @@ func openDB(dsn string) (*sql.DB, error) {
 }
 
 func initSession() *scs.SessionManager {
+	gob.Register(data.User{})
 
 	// setup session
 	session := scs.New()
@@ -130,4 +142,49 @@ func initRedis() *redis.Pool {
 		},
 	}
 	return redisPool
+}
+
+func (app *Config) listenForShutdown() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	app.ShoutDown()
+	os.Exit(0)
+
+}
+
+func (app *Config) ShoutDown() {
+	app.InfoLog.Println("world run clean up task...")
+	// block until
+
+	app.Wait.Wait()
+	app.Mailler.DoneChan <- true
+
+	app.InfoLog.Println("Closing Chan and application ....")
+	close(app.Mailler.MailerChan)
+	close(app.Mailler.ErrorChan)
+	close(app.Mailler.DoneChan)
+
+}
+
+func (app *Config) CreateMail() Mail {
+	// create channels
+	errorChan := make(chan error)
+	maillerChan := make(chan Message, 100)
+	maillerDone := make(chan bool)
+
+	m := Mail{
+		Domain:      "localhost",
+		Host:        "localhost",
+		Port:        1025,
+		Encryption:  "none",
+		FromName:    "Info",
+		FromAddress: "info@mycompany.com",
+		Wait:        app.Wait,
+		ErrorChan:   errorChan,
+		MailerChan:  maillerChan,
+		DoneChan:    maillerDone,
+	}
+	return m
+
 }
