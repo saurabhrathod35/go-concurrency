@@ -230,7 +230,6 @@ func (u *User) Delete() error {
 	defer cancel()
 
 	stmt := `delete from users where id = $1`
-
 	_, err := db.ExecContext(ctx, stmt, u.ID)
 	if err != nil {
 		return err
