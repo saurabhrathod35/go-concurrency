@@ -1,6 +1,11 @@
 package main
 
-import "net/http"
+import (
+	"final-project/data"
+	"fmt"
+	"html/template"
+	"net/http"
+)
 
 func (app *Config) HomePage(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "home.page.gohtml", nil)
@@ -60,15 +65,70 @@ func (app *Config) RegisterPage(w http.ResponseWriter, r *http.Request) {
 	app.render(w, r, "register.page.gohtml", nil)
 }
 func (app *Config) PostRegisterPage(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		app.ErrorLog.Println(err)
+	}
 	// create user
+	u := data.User{
+		Email:     r.Form.Get("email"),
+		FirstName: r.Form.Get("first-name"),
+		LastName:  r.Form.Get("last-name"),
+		Password:  r.Form.Get("password"),
+		Active:    0,
+		IsAdmin:   0,
+	}
+	_, err = u.Insert(u)
+	if err != nil {
+		app.Session.Put(r.Context(), "error", "unable to create user.")
+		http.Redirect(w, r, "/register", http.StatusSeeOther)
+		return
+	}
 
 	// send email
 
-	// subscribe the user to an account
+	url := fmt.Sprintf("http://localhost:9091/activate?email=%s", u.Email)
+	signUrl := GenerateTokenFromString(url)
+	app.InfoLog.Println(signUrl)
+	msg := Message{
+		To:       u.Email,
+		Subject:  "Welcome",
+		Template: "conformation",
+		Data:     template.HTML(signUrl),
+	}
+	app.sendEmail(msg)
+	app.Session.Put(r.Context(), "flash", "Confirmation email Sent")
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 
 }
 func (app *Config) ActivateAccountPage(w http.ResponseWriter, r *http.Request) {
+
 	// validate url
+	url := r.RequestURI
+	testURL := fmt.Sprintf("http://localhost:9091%s", url)
+	okay := VerifyToken(testURL)
+	if !okay {
+		app.Session.Put(r.Context(), "error", "Invalid token")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// activate user
+	u, err := app.Modelas.User.GetByEmail(r.URL.Query().Get("email"))
+	if err != nil {
+		app.Session.Put(r.Context(), "error", "No user found")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	u.Active = 1
+	err = u.Update()
+	if err != nil {
+		app.Session.Put(r.Context(), "error", "Failed to update user")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	app.Session.Put(r.Context(), "flash", "Account activated")
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 
 	// generate invoice
 

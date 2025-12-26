@@ -6,6 +6,7 @@ toolchain go1.24.11
 
 require (
 	github.com/alexedwards/scs/v2 v2.9.0
+	github.com/bwmarrin/go-alone v0.0.0-20190806015146-742bb55d1631
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/gomodule/redigo v1.9.3
 	github.com/jackc/pgx/v5 v5.7.6

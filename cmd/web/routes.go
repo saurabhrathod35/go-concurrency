@@ -23,7 +23,7 @@ func (app *Config) routes() http.Handler {
 	mux.Get("/logout", app.LogOutPage)
 	mux.Get("/register", app.RegisterPage)
 	mux.Post("/register", app.PostRegisterPage)
-	mux.Get("/activate-account", app.ActivateAccountPage)
+	mux.Get("/activate", app.ActivateAccountPage)
 
 	mux.Get("/test-email", func(w http.ResponseWriter, r *http.Request) {
 		m := Mail{
